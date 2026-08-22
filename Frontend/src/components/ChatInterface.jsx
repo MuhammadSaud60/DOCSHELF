@@ -48,7 +48,7 @@ export default function ChatInterface() {
             console.error("Ask Error:", err);
             setMessages((prev) => [
                 ...prev,
-                { role: 'assistant', text: '⚠️ Failed to get a response from the server.' }
+                { role: 'assistant', text: 'Failed to get a response from the server.' }
             ]);
         } finally {
             setLoading(false);
