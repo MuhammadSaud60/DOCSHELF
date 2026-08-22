@@ -1,6 +1,7 @@
 import os
 import chromadb
-from langchain_huggingface import HuggingFaceEmbeddings
+# from langchain_huggingface import HuggingFaceEmbeddings FOR LOCAL BEST
+from langchain_community.embeddings.fastembed import FastEmbedEmbeddings # FOR DEPLOYMENT BECAUSE OF SIZE 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from ..core.config import settings
@@ -9,9 +10,11 @@ from ..core.config import settings
 COLLECTION_NAME = 'rag_documents'
 
 def get_embedding_model():
-    return HuggingFaceEmbeddings(
-        model_name=settings.EMBEDDING_MODEL
-    )
+#     return HuggingFaceEmbeddings(
+#         model_name=settings.EMBEDDING_MODEL
+#     ) FOR LOCAL
+
+     return FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5") # FOR DEPLOYMENT
 
 
 def get_vector_store():
