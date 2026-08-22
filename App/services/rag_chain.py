@@ -37,7 +37,7 @@ def get_rag_chain(vector_store):
         llm = ChatGoogleGenerativeAI(
             model=settings.LLM_MODEL,
             temperature=0.2,
-            google_api_key=settings.GOOGLE_API_KEY,
+            google_api_key=settings.GEMINI_API_KEY,
         )
 
 
