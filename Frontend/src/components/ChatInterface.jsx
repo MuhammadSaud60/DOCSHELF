@@ -20,32 +20,45 @@ export default function ChatInterface() {
   }, [messages, loading]);
 
   const handleSend = async () => {
-    const query = input.trim();
-    if (!query || loading) return;
+  const query = input.trim();
+  if (!query || loading) return;
 
-    const userMsg = { role: 'user', text: query };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput('');
-    setLoading(true);
+  const userMsg = { role: 'user', text: query };
+  setMessages((prev) => [...prev, userMsg]);
+  setInput('');
+  setLoading(true);
 
-    try {
-      const response = await askQuestion(query);
-      const botMsg = { 
-        role: 'assistant', 
-        text: response.answer || "No response received." 
-      };
-      setMessages((prev) => [...prev, botMsg]);
-    } catch (err) {
-      console.error("Ask error:", err);
-      const errorMsg = {
-        role: 'assistant',
-        text: '⚠️ Could not get an answer. Make sure FastAPI is running and a document is uploaded.',
-      };
-      setMessages((prev) => [...prev, errorMsg]);
-    } finally {
-      setLoading(false);
+  try {
+    const response = await askQuestion(query);
+    
+    // Safely extract text from any response structure
+    let botReply = '';
+    if (typeof response === 'string') {
+      botReply = response;
+    } else if (response && typeof response.answer === 'string') {
+      botReply = response.answer;
+    } else if (response?.answer?.content) {
+      botReply = response.answer.content;
+    } else {
+      botReply = JSON.stringify(response?.answer || response);
     }
-  };
+
+    const botMsg = { 
+      role: 'assistant', 
+      text: botReply || "Could not retrieve an answer." 
+    };
+    setMessages((prev) => [...prev, botMsg]);
+  } catch (err) {
+    console.error("Ask error:", err);
+    const errorMsg = {
+      role: 'assistant',
+      text: 'Could not get an answer.',
+    };
+    setMessages((prev) => [...prev, errorMsg]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
