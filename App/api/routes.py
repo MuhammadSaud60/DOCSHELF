@@ -75,19 +75,25 @@ async def upload_file(file: UploadFile = File(...)):
 @router.post("/ask")
 async def ask_question(request: QueryRequest):
     try:
+        print(f"\n--- [NEW QUESTION]: {request.question} ---")
         vector_store = load_vector_store()
-        chain = get_rag_chain(vector_store)
-        result = chain.invoke(request.question)
-
         
-        if hasattr(result, "content"):
-            answer_text = result.content
-        elif isinstance(result, dict):
-            answer_text = result.get("answer") or result.get("result") or str(result)
+        # Test vector store retrieval
+        docs = vector_store.similarity_search(request.question, k=3)
+        print(f"Retrieved {len(docs)} chunks from ChromaDB.")
+        if docs:
+            print(f"Sample retrieved content:\n{docs[0].page_content[:150]}...")
         else:
-            answer_text = str(result)
+            print("No matching chunks found in database!")
 
-        return {"question": request.question, "answer": answer_text}
+        chain = get_rag_chain(vector_store)
+        answer = chain.invoke(request.question)
+        
+        print(f" AI Raw Output: {repr(answer)}")
+
+        final_answer = answer if answer and len(str(answer).strip()) > 0 else "I could not find relevant information in the uploaded documents."
+        return {"question": request.question, "answer": final_answer}
+
     except Exception as e:
         print("Ask Route Error Traceback:")
         traceback.print_exc()
