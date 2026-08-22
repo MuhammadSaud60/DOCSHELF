@@ -63,15 +63,17 @@ def get_rag_chain(vector_store):
                 ("human", "{question}")
             ])
 
-    rag_chain = (
-        {
-            "context": (lambda x: x["question"]) | retriever | format_docs,
-            "question": lambda x: x["question"],
-            "chat_history": lambda x: x.get("chat_history", []),
-        }
-        | prompt
-        | llm
-        | StrOutputParser()
-    )
+    # rag_chain = (
+    #     {
+    #         "context": (lambda x: x["question"]) | retriever | format_docs,
+    #         "question": lambda x: x["question"],
+    #         "chat_history": lambda x: x.get("chat_history", []),
+    #     }
+    #     | prompt
+    #     | llm
+    #     | StrOutputParser()
+    # ) better for local
 
-    return rag_chain
+    return prompt | llm | StrOutputParser()
+
+    # return rag_chain

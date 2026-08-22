@@ -72,27 +72,35 @@ async def upload_file(file: UploadFile = File(...)):
             os.remove(file_path)
 
 
-
 @router.post("/ask")
 async def ask_question(request: QueryRequest):
     try:
+        query_text = request.question.strip()
+        if not query_text:
+            raise HTTPException(status_code=400, detail="Question cannot be empty.")
+
+        # 1. Retrieve matching chunks from vector store
         vector_store = load_vector_store()
-       
+        docs = vector_store.similarity_search(query_text, k=4)
+        context_str = format_docs(docs)
+
+        # 2. Format chat history
         formatted_history = []
         for msg in request.chat_history:
             if msg.role == "user":
-                formatted_history.append(HumanMessage(content=msg.text))
+                formatted_history.append(HumanMessage(content=str(msg.text)))
             elif msg.role == "assistant":
-                formatted_history.append(AIMessage(content=msg.text))
+                formatted_history.append(AIMessage(content=str(msg.text)))
 
+        # 3. Invoke LLM chain
         chain = get_rag_chain(vector_store)
         answer = chain.invoke({
-            "question": request.question,
+            "context": context_str,
             "chat_history": formatted_history,
+            "question": query_text
         })
 
-        return {"question": request.question, "answer": answer}
+        return {"question": query_text, "answer": answer}
     except Exception as e:
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

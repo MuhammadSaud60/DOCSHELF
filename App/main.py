@@ -24,6 +24,10 @@ app.add_middleware(
 app.include_router(rag_router)
 
 
+@app.get("/")
+def health_check():
+    return {"status": "online", "message": "DOCSHELF Backend is running"}
+
 @app.get('/health')
 def health_check():
     return {'status': 'healthy'}
