@@ -72,14 +72,22 @@ async def upload_file(file: UploadFile = File(...)):
 
 
 
-
 @router.post("/ask")
 async def ask_question(request: QueryRequest):
     try:
         vector_store = load_vector_store()
         chain = get_rag_chain(vector_store)
-        answer = chain.invoke(request.question)
-        return {"question": request.question, "answer": answer}
+        result = chain.invoke(request.question)
+
+        
+        if hasattr(result, "content"):
+            answer_text = result.content
+        elif isinstance(result, dict):
+            answer_text = result.get("answer") or result.get("result") or str(result)
+        else:
+            answer_text = str(result)
+
+        return {"question": request.question, "answer": answer_text}
     except Exception as e:
         print("Ask Route Error Traceback:")
         traceback.print_exc()
