@@ -9,12 +9,20 @@ from ..core.config import settings
 
 COLLECTION_NAME = 'rag_documents'
 
+_embedding_model = None
+_chroma_client = None
+
 def get_embedding_model():
 #     return HuggingFaceEmbeddings(
 #         model_name=settings.EMBEDDING_MODEL
 #     ) FOR LOCAL
 
-     return FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5") # FOR DEPLOYMENT
+     global _embedding_model
+
+     if _embedding_model is None:
+        print("Initializing FastEmbed model into RAM...")
+        _embedding_model = FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5")
+     return _embedding_model # FOR DEPLOYMENT
 
 
 def get_vector_store():

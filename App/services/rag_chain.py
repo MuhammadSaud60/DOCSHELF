@@ -6,6 +6,8 @@ from langchain_core.output_parsers import StrOutputParser
 from ..core.config import settings
 
 
+_rag_chain = None
+
 def format_docs(docs):
 
     """
@@ -30,10 +32,13 @@ def get_rag_chain(vector_store):
     complete rag chain  with history
     """
 
-    llm = ChatGoogleGenerativeAI(
-        model=settings.LLM_MODEL,
-        temperature= settings.TEMPERATURE
-    )
+    global _rag_chain
+    if _rag_chain is None:
+        llm = ChatGoogleGenerativeAI(
+            model=settings.LLM_MODEL,
+            temperature=0.2,
+            google_api_key=settings.GOOGLE_API_KEY,
+        )
 
 
     retriever = vector_store.as_retriever(search_kwargs={"k" : settings.TOP_K_RETRIEVAL})
@@ -74,6 +79,9 @@ def get_rag_chain(vector_store):
     #     | StrOutputParser()
     # ) better for local
 
-    return prompt | llm | StrOutputParser()
+    # return _rag_chain
 
-    # return rag_chain
+
+    _rag_chain = prompt | llm | StrOutputParser()
+
+    return _rag_chain
