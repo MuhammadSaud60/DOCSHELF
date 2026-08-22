@@ -26,25 +26,8 @@ def format_docs(docs):
     return '\n\n'.join(formatted)
 
 
-def get_rag_chain(vector_store):
 
-    """
-    complete rag chain  with history
-    """
-
-    global _rag_chain
-    if _rag_chain is None:
-        llm = ChatGoogleGenerativeAI(
-            model=settings.LLM_MODEL,
-            temperature=0.2,
-            google_api_key=settings.GEMINI_API_KEY,
-        )
-
-
-    retriever = vector_store.as_retriever(search_kwargs={"k" : settings.TOP_K_RETRIEVAL})
-
-
-    prompt = ChatPromptTemplate.from_messages([
+prompt = ChatPromptTemplate.from_messages([
         ("system", """You are an interactive AI study tutor and document assistant.
         Use the following retrieved context from the uploaded documents to interact with the user.
 
@@ -68,6 +51,32 @@ def get_rag_chain(vector_store):
                 ("human", "{question}")
             ])
 
+
+
+def get_rag_chain(vector_store):
+
+    """
+    complete rag chain  with history
+    """
+
+    global _rag_chain
+    if _rag_chain is None:
+        llm = ChatGoogleGenerativeAI(
+            model=settings.LLM_MODEL,
+            temperature=0.2,
+            google_api_key=settings.GEMINI_API_KEY,
+        )
+
+    
+        _rag_chain = prompt | llm | StrOutputParser()
+
+    return _rag_chain
+
+
+    # retriever = vector_store.as_retriever(search_kwargs={"k" : settings.TOP_K_RETRIEVAL})
+
+
+
     # rag_chain = (
     #     {
     #         "context": (lambda x: x["question"]) | retriever | format_docs,
@@ -81,7 +90,3 @@ def get_rag_chain(vector_store):
 
     # return _rag_chain
 
-
-    _rag_chain = prompt | llm | StrOutputParser()
-
-    return _rag_chain
