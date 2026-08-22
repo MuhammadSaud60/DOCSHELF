@@ -5,11 +5,9 @@ from  pydantic import Field
 
 load_dotenv()
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 class Settings(BaseSettings):
 
-    PROJECT_NAME : str = 'CHAT WITH YOUR DOCUMENTS'
+    PROJECT_NAME : str = 'DOC SHELF'
 
 
     GEMINI_API_KEY : str
@@ -24,8 +22,8 @@ class Settings(BaseSettings):
     TOP_K_RERANKED: int = 4
 
 
-    UPLOAD_DIR: str = os.path.join(BASE_DIR, "storage", "uploads")
-    VECTOR_DB_DIR: str = os.path.join(BASE_DIR, "storage", "chroma_db")
+    UPLOAD_DIR: str = './storage/uploads'
+    VECTOR_DB_DIR: str = './storage/vector_db'
 
     model_config = SettingsConfigDict(
         env_file = '.env',

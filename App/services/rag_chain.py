@@ -1,5 +1,5 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 
@@ -11,6 +11,9 @@ def format_docs(docs):
     """
     Helper function to join the chunks into one text block
     """
+
+    if not docs:
+        return "No specific document context available."
 
     formatted = []
 
@@ -24,7 +27,7 @@ def format_docs(docs):
 def get_rag_chain(vector_store):
 
     """
-    complete rag chain 
+    complete rag chain  with history
     """
 
     llm = ChatGoogleGenerativeAI(
@@ -36,31 +39,39 @@ def get_rag_chain(vector_store):
     retriever = vector_store.as_retriever(search_kwargs={"k" : settings.TOP_K_RETRIEVAL})
 
 
-    prompt = ChatPromptTemplate.from_template(
-        """You are a professional and helpful AI Document Assistant.
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", """You are an interactive AI study tutor and document assistant.
+        Use the following retrieved context from the uploaded documents to interact with the user.
 
-        Context from uploaded documents:
+        Retrieved Document Context:
         {context}
 
-        User Question: {question}
+        Behavioral Rules:
+        1. **Quiz Request**: If the user asks you to quiz them or ask a question (e.g., "ask me a question", "test me"):
+        - Formulate a clear, direct question based on the document context.
+        - Do NOT reveal the answer yet.
 
-        Instructions:
-        1. GREETINGS: If the user says "hi", "hello", or similar pleasantries, greet them back warmly and let them know you're ready to answer questions about their uploaded files.
-        2. SUMMARIES & GENERAL OVERVIEWS: If the user asks "what is this document about?", "tell me about uploaded documents", or asks for a summary, provide a clear overview synthesized from the context.
-        3. FACTUAL ACCURACY: For specific technical, professional, or biographical questions, answer strictly using the facts in the context. Never invent details.
-        4. MISSING INFO: If the information is completely missing from the context, state: "I could not find that information in the uploaded documents."
+        2. **Answer Assessment (CRITICAL)**: If the user is answering a question you previously asked:
+        - Begin your response with a clear verdict: **Correct**, **Partially Correct**, or **Incorrect**.
+        - Explain *why* in 1–2 sentences citing the document facts.
+        - If incorrect or partial, state what was missing or what the true answer is.
+        - End by asking if they want another question or proceed to ask the next question.
 
-        Answer:"""
-            )
-
+        3. **Standard Q&A**: If the user is asking a normal factual question about the document, answer it directly using the context.
+        4. If the context does not contain enough information, state that clearly."""),
+                MessagesPlaceholder(variable_name="chat_history"),
+                ("human", "{question}")
+            ])
 
     rag_chain = (
-        {'context': retriever | format_docs, "question" : RunnablePassthrough()}
+        {
+            "context": (lambda x: x["question"]) | retriever | format_docs,
+            "question": lambda x: x["question"],
+            "chat_history": lambda x: x.get("chat_history", []),
+        }
         | prompt
         | llm
         | StrOutputParser()
     )
 
-
     return rag_chain
-
