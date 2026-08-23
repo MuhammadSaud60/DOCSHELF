@@ -109,6 +109,7 @@ export const uploadDocument = async (file) => {
 
   const response = await axios.post(`${API_BASE_URL}/upload`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120000,
   });
   return response.data;
 };

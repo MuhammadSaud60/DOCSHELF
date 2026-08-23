@@ -1,5 +1,6 @@
 import os
 import re
+import gc
 import chromadb
 from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_chroma import Chroma
@@ -43,28 +44,26 @@ def clear_vector_store(session_id: str):
     except Exception as e:
         print(f"Clear collection notice: {e}")
 
-def create_or_update_vector_store(chunks: list[Document], session_id: str):
+def create_or_update_vector_store(chunks: list[Document], session_id: str, batch_size: int = 32):
     embeddings = get_embedding_model()
     client = get_chroma_client()
     collection_name = get_clean_collection_name(session_id)
 
-    
-    try:
-        collections = [c.name for c in client.list_collections()]
-        if collection_name in collections:
-            client.delete_collection(name=collection_name)
-    except Exception as e:
-        print(f"Recreation notice: {e}")
+    # Wipe prior session data
+    clear_vector_store(session_id)
 
-   
     vector_store = Chroma(
         client=client,
         collection_name=collection_name,
         embedding_function=embeddings,
     )
 
-    if chunks:
-        vector_store.add_documents(chunks)
+    # Ingest in small batches to stay well under the 512MB RAM ceiling
+    total_chunks = len(chunks)
+    for i in range(0, total_chunks, batch_size):
+        batch = chunks[i : i + batch_size]
+        vector_store.add_documents(batch)
+        gc.collect()
 
     return vector_store
 

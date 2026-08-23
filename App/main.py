@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from App.api.routes import router as rag_router
+from App.services.vector_store import get_embedding_model
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 
 
 
@@ -23,6 +25,17 @@ app.add_middleware(
 
 app.include_router(rag_router)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Pre-download and cache model into RAM at startup
+    print("Warming up FastEmbed embedding model...")
+    try:
+        model = get_embedding_model()
+        model.embed_documents(["warmup text"])
+        print("✅ FastEmbed model loaded successfully.")
+    except Exception as e:
+        print(f"⚠️ Model warmup warning: {e}")
+    yield
 
 @app.get("/")
 def health_check():
