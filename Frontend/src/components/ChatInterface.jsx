@@ -36,8 +36,9 @@ export default function ChatInterface({ disabled, hasDocument, sessionKey }) {
     if (!query || loading || disabled) return;
 
     const userMsg = { role: 'user', text: query };
-    const historySnapshot = messages.filter((m) => m.text.trim().length > 0);
+    const historySnapshot = messages.filter((m) => m.text && m.text.trim().length > 0);
 
+    // Add user message & empty assistant placeholder
     setMessages((prev) => [
       ...prev,
       userMsg,
@@ -47,7 +48,7 @@ export default function ChatInterface({ disabled, hasDocument, sessionKey }) {
     setLoading(true);
 
     try {
-      await streamQuestion(query, historySnapshot, (streamedText) => {
+      const finalReply = await streamQuestion(query, historySnapshot, (streamedText) => {
         setMessages((prev) => {
           const updated = [...prev];
           updated[updated.length - 1] = {
@@ -57,13 +58,25 @@ export default function ChatInterface({ disabled, hasDocument, sessionKey }) {
           return updated;
         });
       });
+
+      // Ensure assistant bubble contains the final string
+      if (finalReply) {
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            role: 'assistant',
+            text: finalReply,
+          };
+          return updated;
+        });
+      }
     } catch (err) {
-      console.error('Stream Error:', err);
+      console.error('Chat Error:', err);
       setMessages((prev) => {
         const updated = [...prev];
         updated[updated.length - 1] = {
           role: 'assistant',
-          text: 'An error occurred while generating the response. Please try again.',
+          text: '⚠️ Failed to get a response from the server. Please try again.',
         };
         return updated;
       });
@@ -74,73 +87,69 @@ export default function ChatInterface({ disabled, hasDocument, sessionKey }) {
 
   return (
     <div className="flex h-full flex-col rounded-2xl border border-black/10 bg-white shadow-sm overflow-hidden">
-      {/* Messages Feed */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
-        {messages.map((msg, index) => (
-          <div
-            key={index}
-            className={`flex items-start gap-3 ${
-              msg.role === 'user' ? 'justify-end' : 'justify-start'
-            }`}
-          >
-            {msg.role === 'assistant' && (
-              <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-zinc-900 text-white shadow-sm">
-                <Bot className="h-4 w-4 text-emerald-400" />
-              </div>
-            )}
+      {/* Message Feed */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+        {messages.map((msg, index) => {
+          const isUser = msg.role === 'user';
+          const isLast = index === messages.length - 1;
+          const showLoadingDots = loading && isLast && !msg.text;
 
+          return (
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                msg.role === 'user'
-                  ? 'bg-blue-600 text-white font-medium shadow-sm'
-                  : 'bg-zinc-100 text-zinc-900 shadow-sm border border-zinc-200/60'
-              }`}
+              key={index}
+              className={`flex items-start gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
             >
-              {msg.role === 'user' ? (
-                <div className="whitespace-pre-wrap">{msg.text}</div>
-              ) : msg.text ? (
-                <div className="prose prose-sm prose-zinc max-w-none dark:prose-invert">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      p: ({ node, ...props }) => <p className="mb-2.5 last:mb-0" {...props} />,
-                      ul: ({ node, ...props }) => <ul className="mb-2.5 list-disc pl-5 space-y-1" {...props} />,
-                      ol: ({ node, ...props }) => <ol className="mb-2.5 list-decimal pl-5 space-y-1" {...props} />,
-                      li: ({ node, ...props }) => <li className="leading-relaxed" {...props} />,
-                      strong: ({ node, ...props }) => <strong className="font-semibold text-zinc-950" {...props} />,
-                      code: ({ node, inline, ...props }) =>
-                        inline ? (
-                          <code className="rounded bg-zinc-200/70 px-1 py-0.5 font-mono text-xs text-zinc-800" {...props} />
-                        ) : (
-                          <pre className="overflow-x-auto rounded-xl bg-zinc-900 p-3 text-xs text-zinc-100 my-2">
-                            <code {...props} />
-                          </pre>
-                        ),
-                    }}
-                  >
-                    {msg.text}
-                  </ReactMarkdown>
+              {!isUser && (
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-zinc-900 text-white shadow-sm">
+                  <Bot className="h-4 w-4 text-emerald-400" />
                 </div>
-              ) : loading && index === messages.length - 1 ? (
-                <div className="flex items-center gap-1.5 py-1">
-                  <span className="h-2 w-2 rounded-full bg-zinc-400 animate-bounce"></span>
-                  <span className="h-2 w-2 rounded-full bg-zinc-400 animate-bounce [animation-delay:0.2s]"></span>
-                  <span className="h-2 w-2 rounded-full bg-zinc-400 animate-bounce [animation-delay:0.4s]"></span>
-                </div>
-              ) : null}
-            </div>
+              )}
 
-            {msg.role === 'user' && (
-              <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-blue-600 text-white shadow-sm">
-                <User className="h-4 w-4" />
+              <div
+                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                  isUser
+                    ? 'bg-blue-600 text-white font-medium shadow-sm'
+                    : 'bg-zinc-100 text-zinc-900 shadow-sm border border-zinc-200/60'
+                }`}
+              >
+                {isUser ? (
+                  <div className="whitespace-pre-wrap">{msg.text}</div>
+                ) : msg.text ? (
+                  <div className="prose prose-sm prose-zinc max-w-none">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        p: ({ node, ...props }) => <p className="mb-2.5 last:mb-0" {...props} />,
+                        ul: ({ node, ...props }) => <ul className="mb-2.5 list-disc pl-5 space-y-1" {...props} />,
+                        ol: ({ node, ...props }) => <ol className="mb-2.5 list-decimal pl-5 space-y-1" {...props} />,
+                        li: ({ node, ...props }) => <li className="leading-relaxed" {...props} />,
+                        strong: ({ node, ...props }) => <strong className="font-semibold text-zinc-950" {...props} />,
+                      }}
+                    >
+                      {msg.text}
+                    </ReactMarkdown>
+                  </div>
+                ) : showLoadingDots ? (
+                  <div className="flex items-center gap-1.5 py-1">
+                    <span className="h-2 w-2 rounded-full bg-zinc-400 animate-bounce"></span>
+                    <span className="h-2 w-2 rounded-full bg-zinc-400 animate-bounce [animation-delay:0.2s]"></span>
+                    <span className="h-2 w-2 rounded-full bg-zinc-400 animate-bounce [animation-delay:0.4s]"></span>
+                  </div>
+                ) : null}
               </div>
-            )}
-          </div>
-        ))}
+
+              {isUser && (
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-blue-600 text-white shadow-sm">
+                  <User className="h-4 w-4" />
+                </div>
+              )}
+            </div>
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Form */}
+      {/* Query Input */}
       <form
         onSubmit={handleSend}
         className="flex items-center gap-2 border-t border-black/10 bg-zinc-50 p-3 sm:px-6 sm:py-4"
@@ -151,7 +160,7 @@ export default function ChatInterface({ disabled, hasDocument, sessionKey }) {
           onChange={(e) => setInput(e.target.value)}
           placeholder={
             hasDocument
-              ? 'Ask about this document (e.g. summarize, test me)...'
+              ? 'Ask about this document...'
               : 'Upload a document first to enable chat...'
           }
           disabled={disabled || loading || !hasDocument}
