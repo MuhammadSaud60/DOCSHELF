@@ -12,7 +12,8 @@ class Settings(BaseSettings):
 
     GEMINI_API_KEY : str
 
-    LLM_MODEL: str = Field(validation_alias='GEMINI_LLM_MODEL')
+    LLM_MODEL: str = Field(validation_alias='LLM_MODEL')
+    LLM_MODEL_2: str = Field(validation_alias='LLM_MODEL_2')
     EMBEDDING_MODEL: str = Field(validation_alias='EMBBEDDING_MODEL')
     TEMPERATURE: float = 0.0
 
