@@ -46,7 +46,7 @@ export default function DocumentUpload({
       onUploadSuccess?.(file.name, result);
     } catch (error) {
       console.error('File upload failed:', error);
-      setAlertMessage(error?.response?.data?.detail || 'Failed to upload document. Please try again.');
+      setAlertMessage(error?.response?.data?.detail || 'Failed to upload document. MAY be Document too large: This demo is hosted on free cloud tiers and is limited to files under 3 MB. DOCSHELF is a portfolio project built by Muhammad Saud for practice and demonstration purposes. Please try uploading a smaller document or resume.');
     } finally {
       setUploading(false);
       onUploadStateChange?.(false);
