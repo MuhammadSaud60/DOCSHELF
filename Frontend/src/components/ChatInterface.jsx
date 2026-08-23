@@ -1,174 +1,187 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Send, Bot, User, Sparkles, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { askQuestion } from '../services/api';
 
-export default function ChatInterface() {
-    const [messages, setMessages] = useState([
+const getInitialMessages = (hasDocument) => [
+  {
+    role: 'assistant',
+    text: hasDocument
+      ? 'Document ready. Ask me anything about it.'
+      : 'Hello! Upload a document and ask me anything about it.',
+  },
+];
+
+export default function ChatInterface({ disabled = false, hasDocument = false, sessionKey = 0 }) {
+  const [messages, setMessages] = useState(() => getInitialMessages(hasDocument));
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  const inputDisabled = loading || disabled || !hasDocument;
+
+  useEffect(() => {
+    setMessages(getInitialMessages(hasDocument));
+    setInput('');
+    setLoading(false);
+  }, [hasDocument, sessionKey]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages, loading]);
+
+  const handleSend = async () => {
+    const query = input.trim();
+    if (!query || inputDisabled) return;
+
+    const userMsg = { role: 'user', text: query };
+    const historySnapshot = [...messages];
+
+    setMessages((prev) => [...prev, userMsg]);
+    setInput('');
+    setLoading(true);
+
+    try {
+      const response = await askQuestion(query, historySnapshot);
+      const botReply = response?.answer || 'No response received.';
+
+      setMessages((prev) => [
+        ...prev,
         {
-            role: 'assistant',
-            text: 'Hello! Upload a document and ask me anything about it.',
+          role: 'assistant',
+          text: botReply,
         },
-    ]);
-    const [input, setInput] = useState('');
-    const [loading, setLoading] = useState(false);
-    const messagesEndRef = useRef(null);
+      ]);
+    } catch (err) {
+      console.error('Ask Error:', err);
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', text: 'Failed to get a response from the server.' },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      handleSend();
+    }
+  };
 
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, loading]);
-
-    const handleSend = async () => {
-        const query = input.trim();
-        if (!query || loading) return;
-
-        const userMsg = { role: 'user', text: query };
-
-        // Keep snapshot of history before adding the new query
-        const historySnapshot = [...messages];
-
-        setMessages((prev) => [...prev, userMsg]);
-        setInput('');
-        setLoading(true);
-
-        try {
-            // Send current query along with the conversation history
-            const response = await askQuestion(query, historySnapshot);
-            const botReply = response?.answer || "No response received.";
-
-            const botMsg = {
-                role: 'assistant',
-                text: botReply
-            };
-            setMessages((prev) => [...prev, botMsg]);
-        } catch (err) {
-            console.error("Ask Error:", err);
-            setMessages((prev) => [
-                ...prev,
-                { role: 'assistant', text: 'Failed to get a response from the server.' }
-            ]);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleKeyDown = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSend();
-        }
-    };
-
-    return (
-        <div className="flex flex-col h-full w-full bg-slate-900/60 border border-slate-800/80 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-sm">
-
-            {/* Top Header */}
-            <div className="px-6 py-4 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between shrink-0">
-                <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-purple-500/10 text-purple-400 rounded-xl">
-                        <Sparkles className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <h3 className="text-sm font-semibold text-slate-100">Document Assistant</h3>
-                        <p className="text-xs text-slate-400">Powered by Gemini 1.5 Flash</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Messages Scroll Area */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                {messages.map((msg, index) => (
-                    <div
-                        key={index}
-                        className={`flex items-start space-x-3 ${msg.role === 'user' ? 'flex-row-reverse space-x-reverse' : 'flex-row'
-                            }`}
-                    >
-                        {/* Avatar */}
-                        <div
-                            className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${msg.role === 'user'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-purple-600/20 text-purple-400 border border-purple-500/30'
-                                }`}
-                        >
-                            {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                        </div>
-
-                        {/* Message Bubble with Rich Markdown Formatting */}
-                        <div
-                            className={`max-w-[85%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed ${msg.role === 'user'
-                                    ? 'bg-blue-600 text-white rounded-tr-none'
-                                    : 'bg-slate-800/80 text-slate-200 border border-slate-700/50 rounded-tl-none'
-                                }`}
-                        >
-                            {msg.role === 'user' ? (
-                                <p className="whitespace-pre-wrap">{msg.text}</p>
-                            ) : (
-                                <div className="prose prose-invert max-w-none text-slate-200 space-y-2">
-                                    <ReactMarkdown
-                                        remarkPlugins={[remarkGfm]}
-                                        components={{
-                                            p: ({ children }) => <p className="mb-2 leading-relaxed">{children}</p>,
-                                            strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
-                                            ul: ({ children }) => <ul className="list-disc list-inside space-y-1 ml-2 mb-3">{children}</ul>,
-                                            ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 ml-2 mb-3">{children}</ol>,
-                                            li: ({ children }) => <li className="text-slate-300">{children}</li>,
-                                            h3: ({ children }) => <h3 className="text-base font-bold text-slate-100 mt-3 mb-1">{children}</h3>,
-                                            code: ({ children }) => (
-                                                <code className="bg-slate-950 px-1.5 py-0.5 rounded text-xs text-purple-300 font-mono">
-                                                    {children}
-                                                </code>
-                                            ),
-                                        }}
-                                    >
-                                        {msg.text}
-                                    </ReactMarkdown>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                ))}
-
-                {loading && (
-                    <div className="flex items-start space-x-3">
-                        <div className="w-8 h-8 rounded-xl bg-purple-600/20 text-purple-400 border border-purple-500/30 flex items-center justify-center shrink-0">
-                            <Bot className="w-4 h-4" />
-                        </div>
-                        <div className="bg-slate-800/80 border border-slate-700/50 rounded-2xl rounded-tl-none px-4 py-3 flex items-center space-x-2 text-slate-400 text-xs">
-                            <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
-                            <span>Analyzing context and answering...</span>
-                        </div>
-                    </div>
-                )}
-
-                <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input Area */}
-            <div className="p-4 border-t border-slate-800 bg-slate-950/60 shrink-0">
-                <div className="flex items-center space-x-2 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 focus-within:border-blue-500 transition-colors">
-                    <input
-                        type="text"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Ask a question about your uploaded documents (Press Enter)..."
-                        className="flex-1 bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none"
-                        disabled={loading}
-                    />
-                    <button
-                        type="button"
-                        onClick={handleSend}
-                        disabled={!input.trim() || loading}
-                        className="p-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors cursor-pointer"
-                    >
-                        <Send className="w-4 h-4" />
-                    </button>
-                </div>
-            </div>
-
+  return (
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-800/80 bg-slate-900/60 shadow-2xl backdrop-blur-sm sm:rounded-2xl">
+      <div className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-950/60 px-4 py-3 sm:px-6 sm:py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-400/10 text-emerald-300">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="truncate text-sm font-semibold text-slate-100">DOCSHELF Assistant</h3>
+            <p className="truncate text-xs text-slate-400">Private document chat</p>
+          </div>
         </div>
-    );
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 sm:space-y-4 sm:p-6">
+        {messages.map((msg, index) => {
+          const isUser = msg.role === 'user';
+
+          return (
+            <div
+              key={index}
+              className={`flex items-start gap-2 sm:gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
+            >
+              <div
+                className={`grid h-8 w-8 shrink-0 place-items-center rounded-xl ${
+                  isUser
+                    ? 'bg-blue-600 text-white'
+                    : 'border border-emerald-400/30 bg-emerald-500/15 text-emerald-300'
+                }`}
+              >
+                {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+              </div>
+
+              <div
+                className={`min-w-0 max-w-[calc(100%-2.75rem)] break-words rounded-2xl px-3.5 py-3 text-sm leading-relaxed sm:max-w-[85%] sm:px-5 sm:py-3.5 ${
+                  isUser
+                    ? 'rounded-tr-none bg-blue-600 text-white'
+                    : 'rounded-tl-none border border-slate-700/50 bg-slate-800/80 text-slate-200'
+                }`}
+              >
+                {isUser ? (
+                  <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+                ) : (
+                  <div className="max-w-none space-y-2 overflow-x-auto text-slate-200">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        p: ({ children }) => <p className="mb-2 leading-relaxed last:mb-0">{children}</p>,
+                        strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
+                        ul: ({ children }) => <ul className="mb-3 ml-4 list-disc space-y-1">{children}</ul>,
+                        ol: ({ children }) => <ol className="mb-3 ml-4 list-decimal space-y-1">{children}</ol>,
+                        li: ({ children }) => <li className="text-slate-300">{children}</li>,
+                        h3: ({ children }) => (
+                          <h3 className="mb-1 mt-3 text-base font-bold text-slate-100">{children}</h3>
+                        ),
+                        pre: ({ children }) => (
+                          <pre className="overflow-x-auto rounded-lg bg-slate-950 p-3 text-xs">{children}</pre>
+                        ),
+                        code: ({ children }) => (
+                          <code className="rounded bg-slate-950 px-1.5 py-0.5 font-mono text-xs text-emerald-200">
+                            {children}
+                          </code>
+                        ),
+                      }}
+                    >
+                      {msg.text}
+                    </ReactMarkdown>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {loading && (
+          <div className="flex items-start gap-2 sm:gap-3">
+            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-emerald-400/30 bg-emerald-500/15 text-emerald-300">
+              <Bot className="h-4 w-4" />
+            </div>
+            <div className="flex min-w-0 max-w-[calc(100%-2.75rem)] items-center gap-2 rounded-2xl rounded-tl-none border border-slate-700/50 bg-slate-800/80 px-3.5 py-3 text-xs text-slate-400 sm:px-4">
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-emerald-300" />
+              <span className="min-w-0">Analyzing context and answering...</span>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="shrink-0 border-t border-slate-800 bg-slate-950/60 p-3 sm:p-4">
+        <div className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 transition-colors focus-within:border-blue-500 sm:px-4">
+          <input
+            type="text"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={hasDocument ? 'Ask about this document...' : 'Upload a document to start chatting'}
+            className="min-w-0 flex-1 bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none disabled:cursor-not-allowed"
+            disabled={inputDisabled}
+          />
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={!input.trim() || inputDisabled}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-blue-600 text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Send message"
+          >
+            <Send className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
