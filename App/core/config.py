@@ -5,6 +5,8 @@ from  pydantic import Field
 
 load_dotenv()
 
+
+
 class Settings(BaseSettings):
 
     PROJECT_NAME : str = 'DOC SHELF'
@@ -17,8 +19,8 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = Field(validation_alias='EMBBEDDING_MODEL')
     TEMPERATURE: float = 0.0
 
-    CHUNK_SIZE: int = 1300
-    CHUNK_OVERLAP: int = 100
+    CHUNK_SIZE: int = 1800
+    CHUNK_OVERLAP: int = 200
     TOP_K_RETRIEVAL: int = 5
     TOP_K_RERANKED: int = 2
 
