@@ -1,49 +1,48 @@
 import os
 import shutil
 import traceback
-from fastapi import APIRouter, UploadFile, File, HTTPException
-from langchain_core.messages import HumanMessage, AIMessage
+from typing import List, Optional
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from langchain_core.messages import HumanMessage, AIMessage
+
+from App.core.config import settings
 from App.services.parser import load_document, chunk_document
-from App.services.vector_store import create_or_update_vector_store, load_vector_store, clear_vector_store, is_vector_store_empty
-from App.services.rag_chain import format_docs, get_rag_chain
+from App.services.vector_store import (
+    create_or_update_vector_store,
+    load_vector_store,
+    clear_vector_store
+)
+from App.services.rag_chain import get_rag_chain, format_docs
 
-from ..core.config import settings
-
-
-router = APIRouter(prefix='/api/v1', tags=['RAG'])
-
-
-os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-
-
+router = APIRouter(prefix="/api/v1", tags=["RAG"])
 
 class ChatMessage(BaseModel):
     role: str
     text: str
 
 class QueryRequest(BaseModel):
-    question : str
-    chat_history: list[ChatMessage] = []
-
-
-
+    question: str
+    session_id: str = "default_session"
+    chat_history: List[ChatMessage] = []
 
 @router.delete("/clear")
-async def clear_database():
-    """Wipes all indexed data from ChromaDB."""
+def clear_database(session_id: str = Query("default_session")):
     try:
-        clear_vector_store()
-        print("[BACKEND] Database cleared successfully via API call <<<")
-        return {"status": "success", "message": "Knowledge base cleared."}
+        clear_vector_store(session_id)
+        return {"status": "success", "message": f"Knowledge base for session '{session_id}' cleared."}
     except Exception as e:
-        print(f"[BACKEND ERROR] Failed to clear: {e} <<<")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+def upload_file(
+    file: UploadFile = File(...),
+    session_id: str = Form("default_session")
+):
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-    file_path = os.path.join(settings.UPLOAD_DIR, file.filename)
+    file_path = os.path.join(settings.UPLOAD_DIR, f"{session_id}_{file.filename}")
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
@@ -54,37 +53,32 @@ async def upload_file(file: UploadFile = File(...)):
             raise ValueError("No text could be extracted from this document.")
 
         chunks = chunk_document(raw_docs)
-        print(f"Extracted {len(chunks)} chunks from {file.filename}")
-
-        create_or_update_vector_store(chunks)
-        print("Document successfully indexed in ChromaDB")
+        create_or_update_vector_store(chunks, session_id=session_id)
 
         return {
             "message": f"'{file.filename}' processed successfully!",
-            "total_chunks_created": len(chunks)
+            "total_chunks_created": len(chunks),
+            "session_id": session_id
         }
     except Exception as e:
-        print("Upload Error Traceback:")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if os.path.exists(file_path):
             os.remove(file_path)
 
-
 @router.post("/ask")
-async def ask_question(request: QueryRequest):
-    try:
-        query_text = request.question.strip()
-        if not query_text:
-            raise HTTPException(status_code=400, detail="Question cannot be empty.")
+def ask_question(request: QueryRequest):
+    query_text = request.question.strip()
+    if not query_text:
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
-        # 1. Retrieve matching chunks from vector store
-        vector_store = load_vector_store()
+    try:
+        # Load user/tab-isolated vector store
+        vector_store = load_vector_store(session_id=request.session_id)
         docs = vector_store.similarity_search(query_text, k=4)
         context_str = format_docs(docs)
 
-        # 2. Format chat history
         formatted_history = []
         for msg in request.chat_history:
             if msg.role == "user":
@@ -92,15 +86,19 @@ async def ask_question(request: QueryRequest):
             elif msg.role == "assistant":
                 formatted_history.append(AIMessage(content=str(msg.text)))
 
-        # 3. Invoke LLM chain
         chain = get_rag_chain(vector_store)
-        answer = chain.invoke({
+        result = chain.invoke({
             "context": context_str,
             "chat_history": formatted_history,
             "question": query_text
         })
 
-        return {"question": query_text, "answer": answer}
+        answer_text = str(result).strip() if result else "No answer could be generated."
+
+        return JSONResponse(
+            status_code=200,
+            content={"question": query_text, "answer": answer_text}
+        )
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
