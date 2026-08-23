@@ -76,7 +76,7 @@ export default function ChatInterface({ disabled, hasDocument, sessionKey }) {
         const updated = [...prev];
         updated[updated.length - 1] = {
           role: 'assistant',
-          text: '⚠️ Failed to get a response from the server. Please try again.',
+          text: 'Failed to get a response from the server. Please try again.',
         };
         return updated;
       });
