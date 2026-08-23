@@ -2,9 +2,9 @@ import React, { useRef, useState } from 'react';
 import { Upload, FileUp, Loader2 } from 'lucide-react';
 import { uploadDocument } from '../services/api';
 
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024;
 const DOCUMENT_TOO_LARGE_MESSAGE =
-  '⚠️ Document too large: This demo is hosted on free cloud tiers and is limited to files under 5 MB. DOCSHELF is a portfolio project built by Muhammad Saud for practice and demonstration purposes. Please try uploading a smaller document or resume.';
+  'Document too large: This demo is hosted on free cloud tiers and is limited to files under 3 MB. DOCSHELF is a portfolio project built by Muhammad Saud for practice and demonstration purposes. Please try uploading a smaller document or resume.';
 
 export default function DocumentUpload({
   disabled,
