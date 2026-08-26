@@ -3,11 +3,12 @@ import {
   CheckCircle2,
   Database,
   FileText,
+  Notebook,
   PanelLeftClose,
   PanelLeftOpen,
+  Pencil,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
   Trash2,
 } from 'lucide-react';
 import DocumentUpload from './components/DocumentUpload';
@@ -155,7 +156,7 @@ export default function App() {
             <div className="flex items-center justify-between">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white text-zinc-950 shadow-sm">
-                  <Sparkles className="h-5 w-5" />
+                  <Pencil className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold tracking-tight">DOCSHELF</p>
@@ -298,7 +299,7 @@ export default function App() {
           <div className="w-full max-w-md rounded-2xl border border-white/15 bg-white p-5 text-zinc-950 shadow-2xl sm:p-6">
             <div className="mb-4 flex items-center gap-3">
               <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-700">
-                <Sparkles className="h-5 w-5" />
+                <Notebook className="h-5 w-5" />
               </div>
               <h2 id="welcome-title" className="text-lg font-bold tracking-tight">
                 Welcome to DOCSHELF

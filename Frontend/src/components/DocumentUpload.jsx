@@ -2,9 +2,15 @@ import React, { useRef, useState } from 'react';
 import { Upload, FileUp, Loader2 } from 'lucide-react';
 import { uploadDocument } from '../services/api';
 
-const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024;
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const DOCUMENT_TOO_LARGE_MESSAGE =
-  'Document too large: This demo is hosted on free cloud tiers and is limited to files under 3 MB. DOCSHELF is a portfolio project built by Muhammad Saud for practice and demonstration purposes. Please try uploading a smaller document or resume.';
+  'Document too large: This demo is hosted on free cloud tiers and is limited to files under 5 MB. DOCSHELF is a portfolio project built by Muhammad Saud for practice and demonstration purposes. Please try uploading a smaller document or resume.';
+
+const isDeployedEnvironment = () => {
+  if (typeof window === 'undefined') return false;
+  const isLocal = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
+  return !isLocal;
+};
 
 export default function DocumentUpload({
   disabled,
@@ -23,13 +29,14 @@ export default function DocumentUpload({
     }
   };
 
-  // 1. Triggered when a file is selected via click or drag-and-drop
   const processUpload = async (file) => {
     if (!file || disabled || uploading) return;
 
     setIsDragging(false);
+    const isDeployed = isDeployedEnvironment();
 
-    if (file.size > MAX_FILE_SIZE_BYTES) {
+    
+    if (isDeployed && file.size > MAX_FILE_SIZE_BYTES) {
       setAlertMessage(DOCUMENT_TOO_LARGE_MESSAGE);
       resetFileInput();
       return;
@@ -41,12 +48,14 @@ export default function DocumentUpload({
     await onPrepareUpload?.();
 
     try {
-      // Calls the centralized API helper which attaches session_id
       const result = await uploadDocument(file);
       onUploadSuccess?.(file.name, result);
     } catch (error) {
       console.error('File upload failed:', error);
-      setAlertMessage(error?.response?.data?.detail || 'Failed to upload document. MAY be Document too large: This demo is hosted on free cloud tiers and is limited to files under 3 MB. DOCSHELF is a portfolio project built by Muhammad Saud for practice and demonstration purposes. Please try uploading a smaller document or resume.');
+      const fallbackMsg = isDeployed
+        ? DOCUMENT_TOO_LARGE_MESSAGE
+        : 'Failed to upload document. Please check your local backend logs.';
+      setAlertMessage(error?.response?.data?.detail || fallbackMsg);
     } finally {
       setUploading(false);
       onUploadStateChange?.(false);
@@ -54,7 +63,6 @@ export default function DocumentUpload({
     }
   };
 
-  // 2. Standard file input change handler
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -62,7 +70,6 @@ export default function DocumentUpload({
     }
   };
 
-  // 3. Drag and drop handlers
   const handleDragOver = (e) => {
     e.preventDefault();
     if (!disabled && !uploading) setIsDragging(true);
