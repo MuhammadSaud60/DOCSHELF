@@ -45,15 +45,22 @@ export default function DocumentUpload({
     throw new Error('Processing timed out. Please try again.');
   };
 
-  const processUpload = async (file) => {
-    if (!file || disabled || uploading) return;
+  const processUploads = async (files) => {
+    if (!files.length || disabled || uploading) return;
 
     setIsDragging(false);
     const isDeployed = isDeployedEnvironment();
 
-    
-    if (isDeployed && file.size > MAX_FILE_SIZE_BYTES) {
-      setAlertMessage(DOCUMENT_TOO_LARGE_MESSAGE);
+    // Filter out oversized files on deployed env, keep the rest
+    const validFiles = [];
+    for (const f of files) {
+      if (isDeployed && f.size > MAX_FILE_SIZE_BYTES) {
+        setAlertMessage(DOCUMENT_TOO_LARGE_MESSAGE);
+      } else {
+        validFiles.push(f);
+      }
+    }
+    if (!validFiles.length) {
       resetFileInput();
       return;
     }
@@ -64,17 +71,20 @@ export default function DocumentUpload({
     await onPrepareUpload?.();
 
     try {
-      const result = await uploadDocument(file);
-      // Backend now processes in background: poll the job status
-      if (result.job_id) {
-        setUploading(false);
-        setProcessing(true);
-        const done = await pollJobUntilDone(result.job_id);
-        setProcessing(false);
-        onUploadSuccess?.(file.name, done);
-      } else {
-        // Fallback for older backend responses
-        onUploadSuccess?.(file.name, result);
+      // Upload files one by one, poll each background job
+      for (const file of validFiles) {
+        const result = await uploadDocument(file);
+        if (result.job_id) {
+          setUploading(false);
+          setProcessing(true);
+          const done = await pollJobUntilDone(result.job_id);
+          setProcessing(false);
+          setUploading(true);
+          onUploadSuccess?.(file.name, done);
+        } else {
+          // Fallback for older backend responses
+          onUploadSuccess?.(file.name, result);
+        }
       }
     } catch (error) {
       console.error('File upload failed:', error);
@@ -91,9 +101,9 @@ export default function DocumentUpload({
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processUpload(file);
+    const files = Array.from(e.target.files || []);
+    if (files.length) {
+      processUploads(files);
     }
   };
 
@@ -109,9 +119,9 @@ export default function DocumentUpload({
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      processUpload(file);
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length) {
+      processUploads(files);
     }
   };
 
@@ -141,6 +151,7 @@ export default function DocumentUpload({
           ref={fileInputRef}
           type="file"
           accept=".pdf,.docx,.doc,.txt,.md"
+          multiple
           onChange={handleFileChange}
           className="hidden"
           disabled={disabled || uploading || processing}

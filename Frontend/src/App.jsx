@@ -73,19 +73,21 @@ export default function App() {
   }, [resetClientSession]);
 
   const prepareDocumentUpload = useCallback(async () => {
-    resetClientSession();
+    // Multi-doc: do NOT wipe the file list here. New uploads append.
+    // Explicit "Clear" button still wipes everything via handleClearAll.
     setNotice(null);
-  }, [resetClientSession]);
+  }, []);
 
   const handleUploadSuccess = useCallback((fileName, result) => {
-    setUploadedFiles([
+    setUploadedFiles((prev) => [
+      ...prev,
       {
         id: createId(),
         name: fileName,
         chunks: result?.total_chunks_created ?? null,
       },
     ]);
-    setNotice({ type: 'success', text: 'Document ready. Chat history has been reset.' });
+    setNotice({ type: 'success', text: `'${fileName}' ready. You can add more documents or start chatting.` });
   }, []);
 
   const handleClearAll = useCallback(async () => {
@@ -192,27 +194,31 @@ export default function App() {
               <div className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-zinc-400">
                 <span className="flex items-center gap-2">
                   <Database className="h-3.5 w-3.5 text-emerald-300" />
-                  Active Document
+                  Documents
                 </span>
                 <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-zinc-300">
                   {uploadedFiles.length}
                 </span>
               </div>
 
-              {activeDocument ? (
-                <div className="rounded-xl border border-white/10 bg-white p-3 text-zinc-950 shadow-sm">
-                  <div className="flex items-start gap-3">
-                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-700">
-                      <FileText className="h-5 w-5" />
+              {uploadedFiles.length > 0 ? (
+                <div className="space-y-2">
+                  {uploadedFiles.map((doc) => (
+                    <div key={doc.id} className="rounded-xl border border-white/10 bg-white p-3 text-zinc-950 shadow-sm">
+                      <div className="flex items-start gap-3">
+                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-700">
+                          <FileText className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold">{doc.name}</p>
+                          <p className="mt-1 text-xs text-zinc-500">
+                            {doc.chunks ? `${doc.chunks} chunks indexed` : 'Indexed for retrieval'}
+                          </p>
+                        </div>
+                        <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">{activeDocument.name}</p>
-                      <p className="mt-1 text-xs text-zinc-500">
-                        {activeDocument.chunks ? `${activeDocument.chunks} chunks indexed` : 'Indexed for retrieval'}
-                      </p>
-                    </div>
-                    <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
-                  </div>
+                  ))}
                 </div>
               ) : (
                 <div className="rounded-xl border border-dashed border-white/15 bg-white/5 px-4 py-5 text-sm text-zinc-400">
@@ -260,10 +266,12 @@ export default function App() {
               )}
               <div className="min-w-0">
                 <h1 className="truncate text-sm font-semibold tracking-tight text-zinc-950">
-                  {activeDocument ? activeDocument.name : 'DOCSHELF'}
+                  {uploadedFiles.length > 0
+                    ? `${uploadedFiles.length} document${uploadedFiles.length > 1 ? 's' : ''}`
+                    : 'DOCSHELF'}
                 </h1>
                 <p className="truncate text-xs text-zinc-500">
-                  {activeDocument ? 'Chat context is scoped to the current upload.' : 'Upload a document to start a fresh session.'}
+                  {uploadedFiles.length > 0 ? 'Chat searches across all uploaded documents.' : 'Upload a document to start a fresh session.'}
                 </p>
               </div>
             </div>

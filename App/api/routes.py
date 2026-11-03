@@ -71,8 +71,8 @@ def _process_upload_job(job_id: str, file_path: str, filename: str, session_id: 
         client = get_chroma_client()
         collection_name = get_clean_collection_name(session_id)
 
-        # Wipe prior session data before indexing the new document
-        clear_vector_store(session_id)
+        # NOTE: no wipe here — uploads APPEND so multiple documents
+        # coexist in one session. DELETE /clear wipes explicitly.
 
         from langchain_chroma import Chroma
         vector_store = Chroma(

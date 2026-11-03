@@ -49,8 +49,8 @@ def create_or_update_vector_store(chunks: list[Document], session_id: str, batch
     client = get_chroma_client()
     collection_name = get_clean_collection_name(session_id)
 
-    # Wipe prior session data
-    clear_vector_store(session_id)
+    # NOTE: no wipe here — uploads APPEND to the session collection so
+    # multiple documents can coexist. Use DELETE /clear to wipe explicitly.
 
     vector_store = Chroma(
         client=client,
