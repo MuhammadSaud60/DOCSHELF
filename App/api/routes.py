@@ -13,7 +13,6 @@ from langchain_core.messages import HumanMessage, AIMessage
 from App.core.config import settings
 from App.services.parser import load_document, load_document_lazy, chunk_document
 from App.services.vector_store import (
-    create_or_update_vector_store,
     load_vector_store,
     clear_vector_store,
     get_embedding_model,
@@ -81,6 +80,13 @@ def _process_upload_job(job_id: str, file_path: str, filename: str, session_id: 
             embedding_function=embeddings,
         )
 
+        # Replace any previous upload of the SAME filename so re-uploads
+        # don't create duplicates. Different filenames still coexist.
+        try:
+            vector_store.delete(where={"source": filename})
+        except Exception as e:
+            print(f"Replace-on-reupload notice: {e}")
+
         total_chunks = 0
         batch = []
         BATCH_DOCS = 10  # pages per batch before chunk+embed+write
@@ -96,7 +102,7 @@ def _process_upload_job(job_id: str, file_path: str, filename: str, session_id: 
             batch = []
             gc.collect()
 
-        for doc in load_document_lazy(file_path):
+        for doc in load_document_lazy(file_path, source_name=filename):
             batch.append(doc)
             if len(batch) >= BATCH_DOCS:
                 _flush()

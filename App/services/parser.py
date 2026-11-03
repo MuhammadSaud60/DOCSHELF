@@ -23,11 +23,12 @@ def _get_loader(file_path: str):
         raise ValueError(f'File format {ext} not supported')
 
 
-def load_document(file_path: str):
+def load_document(file_path: str, source_name: str | None = None):
     """
-        Detect file path and extract the text
+        Detect file path and extract the text.
+        source_name: clean display name for metadata (defaults to file basename).
     """
-    file_name = str(os.path.basename(file_path))
+    file_name = source_name or str(os.path.basename(file_path))
     loader = _get_loader(file_path)
 
     docs = loader.load()
@@ -38,12 +39,13 @@ def load_document(file_path: str):
     return docs
 
 
-def load_document_lazy(file_path: str):
+def load_document_lazy(file_path: str, source_name: str | None = None):
     """
     Stream documents page-by-page instead of loading the whole file
     into RAM at once. Use for large documents.
+    source_name: clean display name for metadata (defaults to file basename).
     """
-    file_name = str(os.path.basename(file_path))
+    file_name = source_name or str(os.path.basename(file_path))
     loader = _get_loader(file_path)
 
     # Not every loader implements lazy_load; fall back to load() then
