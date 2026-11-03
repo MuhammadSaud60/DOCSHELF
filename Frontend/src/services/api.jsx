@@ -100,7 +100,7 @@ export const streamQuestion = async (question, chatHistory, onChunk) => {
   return accumulatedText;
 };
 
-// 4. File Upload
+// 4. File Upload (returns immediately; processing happens in background)
 export const uploadDocument = async (file) => {
   const sessionId = getSessionId();
   const formData = new FormData();
@@ -111,7 +111,15 @@ export const uploadDocument = async (file) => {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 300000,
   });
-  return response.data;
+  return response.data; // { job_id, status_url, session_id, message }
+};
+
+// 4b. Poll background upload job status until done/failed
+export const getUploadStatus = async (jobId) => {
+  const response = await axios.get(`${API_BASE_URL}/upload/status/${jobId}`, {
+    timeout: 15000,
+  });
+  return response.data; // { job_id, status, filename, total_chunks_created?, error? }
 };
 
 // 5. Clear Workspace

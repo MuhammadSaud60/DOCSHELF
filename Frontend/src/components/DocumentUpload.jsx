@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Upload, FileUp, Loader2 } from 'lucide-react';
-import { uploadDocument } from '../services/api';
+import { uploadDocument, getUploadStatus } from '../services/api';
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const DOCUMENT_TOO_LARGE_MESSAGE =
@@ -20,6 +20,7 @@ export default function DocumentUpload({
 }) {
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const fileInputRef = useRef(null);
 
@@ -27,6 +28,21 @@ export default function DocumentUpload({
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  const pollJobUntilDone = async (jobId) => {
+    // Poll every 2s; give up after ~10 minutes
+    const maxAttempts = 300;
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const status = await getUploadStatus(jobId);
+      if (status.status === 'done') return status;
+      if (status.status === 'failed') {
+        throw new Error(status.error || 'Document processing failed on the server.');
+      }
+      // queued / processing -> keep polling
+    }
+    throw new Error('Processing timed out. Please try again.');
   };
 
   const processUpload = async (file) => {
@@ -49,15 +65,26 @@ export default function DocumentUpload({
 
     try {
       const result = await uploadDocument(file);
-      onUploadSuccess?.(file.name, result);
+      // Backend now processes in background: poll the job status
+      if (result.job_id) {
+        setUploading(false);
+        setProcessing(true);
+        const done = await pollJobUntilDone(result.job_id);
+        setProcessing(false);
+        onUploadSuccess?.(file.name, done);
+      } else {
+        // Fallback for older backend responses
+        onUploadSuccess?.(file.name, result);
+      }
     } catch (error) {
       console.error('File upload failed:', error);
       const fallbackMsg = isDeployed
         ? DOCUMENT_TOO_LARGE_MESSAGE
         : 'Failed to upload document. Please check your local backend logs.';
-      setAlertMessage(error?.response?.data?.detail || fallbackMsg);
+      setAlertMessage(error?.response?.data?.detail || error.message || fallbackMsg);
     } finally {
       setUploading(false);
+      setProcessing(false);
       onUploadStateChange?.(false);
       resetFileInput();
     }
@@ -72,7 +99,7 @@ export default function DocumentUpload({
 
   const handleDragOver = (e) => {
     e.preventDefault();
-    if (!disabled && !uploading) setIsDragging(true);
+    if (!disabled && !uploading && !processing) setIsDragging(true);
   };
 
   const handleDragLeave = () => {
@@ -103,12 +130,12 @@ export default function DocumentUpload({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={() => !disabled && !uploading && fileInputRef.current?.click()}
+        onClick={() => !disabled && !uploading && !processing && fileInputRef.current?.click()}
         className={`relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition cursor-pointer ${
           isDragging
             ? 'border-emerald-400 bg-emerald-400/10'
             : 'border-white/15 bg-white/5 hover:border-white/30 hover:bg-white/10'
-        } ${disabled || uploading ? 'cursor-not-allowed opacity-50' : ''}`}
+        } ${disabled || uploading || processing ? 'cursor-not-allowed opacity-50' : ''}`}
       >
         <input
           ref={fileInputRef}
@@ -116,11 +143,11 @@ export default function DocumentUpload({
           accept=".pdf,.docx,.doc,.txt,.md"
           onChange={handleFileChange}
           className="hidden"
-          disabled={disabled || uploading}
+          disabled={disabled || uploading || processing}
         />
 
         <div className="mb-3 grid h-12 w-12 place-items-center rounded-xl bg-white/10 text-white">
-          {uploading ? (
+          {uploading || processing ? (
             <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
           ) : (
             <FileUp className="h-6 w-6 text-emerald-400" />
@@ -128,7 +155,7 @@ export default function DocumentUpload({
         </div>
 
         <p className="text-sm font-semibold text-white">
-          {uploading ? 'Processing document...' : 'Choose a file'}
+          {uploading ? 'Uploading...' : processing ? 'Processing document... (large files take a while)' : 'Choose a file'}
         </p>
         <p className="mt-1 text-xs text-zinc-400">
           Drag it here or select from your computer (PDF, DOCX, TXT)
