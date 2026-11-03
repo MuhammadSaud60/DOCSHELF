@@ -9,29 +9,26 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
 
-def load_document(file_path: str): 
-
-    """
-        Detect file path and extract the text 
-    """
-
-    # file name and extension extracting
-    file_name = str(os.path.basename(file_path))
+def _get_loader(file_path: str):
+    """Return the right LangChain loader for the file extension."""
     ext = os.path.splitext(file_path)[-1].lower()
-    
 
     if ext == '.pdf':
-
-        loader = PyPDFLoader(file_path)
-
+        return PyPDFLoader(file_path)
     elif ext in ['.docx', '.doc']:
-        loader = Docx2txtLoader(file_path)
-
+        return Docx2txtLoader(file_path)
     elif ext in ['.txt', '.md']:
-        loader = TextLoader(file_path, encoding='utf-8', autodetect_encoding=True)
-
+        return TextLoader(file_path, encoding='utf-8', autodetect_encoding=True)
     else:
         raise ValueError(f'File format {ext} not supported')
+
+
+def load_document(file_path: str):
+    """
+        Detect file path and extract the text
+    """
+    file_name = str(os.path.basename(file_path))
+    loader = _get_loader(file_path)
 
     docs = loader.load()
 
@@ -39,6 +36,23 @@ def load_document(file_path: str):
         doc.metadata['source'] = file_name
 
     return docs
+
+
+def load_document_lazy(file_path: str):
+    """
+    Stream documents page-by-page instead of loading the whole file
+    into RAM at once. Use for large documents.
+    """
+    file_name = str(os.path.basename(file_path))
+    loader = _get_loader(file_path)
+
+    # Not every loader implements lazy_load; fall back to load() then
+    lazy = getattr(loader, "lazy_load", None)
+    docs = lazy() if callable(lazy) else loader.load()
+
+    for doc in docs:
+        doc.metadata['source'] = file_name
+        yield doc
 
 
 def chunk_document(docs: list[Document], chunk_size: int = 800, chunk_overlap: int = 150):

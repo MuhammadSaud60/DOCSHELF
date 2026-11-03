@@ -60,21 +60,3 @@ def get_fallback_chain():
         _fallback_chain = prompt | fallback_llm | StrOutputParser()
     return _fallback_chain
 
-
-    # retriever = vector_store.as_retriever(search_kwargs={"k" : settings.TOP_K_RETRIEVAL})
-
-
-
-    # rag_chain = (
-    #     {
-    #         "context": (lambda x: x["question"]) | retriever | format_docs,
-    #         "question": lambda x: x["question"],
-    #         "chat_history": lambda x: x.get("chat_history", []),
-    #     }
-    #     | prompt
-    #     | llm
-    #     | StrOutputParser()
-    # ) better for local
-
-    # return _rag_chain
-
