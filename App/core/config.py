@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     LLM_MODEL: str = Field(validation_alias='LLM_MODEL')
     LLM_MODEL_2: str = Field(validation_alias='LLM_MODEL_2')
-    EMBEDDING_MODEL: str = Field(validation_alias='EMBEDDING_MODEL')
+    EMBEDDING_MODEL: str = Field(default="BAAI/bge-small-en-v1.5", validation_alias='EMBEDDING_MODEL')
     TEMPERATURE: float = 0.0
 
     CHUNK_SIZE: int = 800
