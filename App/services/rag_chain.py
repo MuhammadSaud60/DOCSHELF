@@ -16,6 +16,9 @@ prompt = ChatPromptTemplate.from_messages([
     ("system", """You are an interactive AI study tutor and document assistant.
 Use the following retrieved context from uploaded documents to interact with the user.
 
+Documents in the user's workspace (the COMPLETE list — nothing else exists):
+{documents}
+
 Retrieved Document Context:
 {context}
 
@@ -31,7 +34,8 @@ Behavioral Rules:
    - End by asking if they want another question.
 
 3. **Standard Q&A**: If the user asks a normal factual question, answer it directly using the context.
-4. If the context does not contain enough information, state that clearly."""),
+4. If the context does not contain enough information, state that clearly.
+5. **Document inventory**: When asked what documents exist, whether documents are relevant to each other, or anything about the collection itself, use ONLY the "Documents in the user's workspace" list above. NEVER invent, guess, or rename document titles. If a title in the retrieved context does not match the workspace list, it is just text inside a document, not a separate file."""),
     MessagesPlaceholder(variable_name="chat_history"),
     ("human", "{question}")
 ])

@@ -175,6 +175,23 @@ async def ask_question_stream(request: QueryRequest):
         docs = vector_store.similarity_search(query_text, k=settings.TOP_K_RETRIEVAL)
         context_str = format_docs(docs)
 
+        # Ground the model in the TRUE document list so it never invents
+        # filenames or miscounts uploads. Sources come from chunk metadata.
+        try:
+            all_meta = vector_store.get(include=["metadatas"])
+            seen_sources = []
+            for md in (all_meta.get("metadatas") or []):
+                src = (md or {}).get("source")
+                if src and src not in seen_sources:
+                    seen_sources.append(src)
+        except Exception:
+            seen_sources = []
+        doc_list_str = (
+            "\n".join(f"- {s}" for s in seen_sources)
+            if seen_sources
+            else "(no documents uploaded yet)"
+        )
+
         formatted_history = []
         for msg in request.chat_history:
             if msg.text.strip():
@@ -185,6 +202,7 @@ async def ask_question_stream(request: QueryRequest):
 
         payload = {
             "context": context_str,
+            "documents": doc_list_str,
             "chat_history": formatted_history,
             "question": query_text
         }
